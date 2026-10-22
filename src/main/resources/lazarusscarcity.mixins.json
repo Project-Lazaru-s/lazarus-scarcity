@@ -1,0 +1,9 @@
+{
+  "required": false,
+  "minVersion": "0.8",
+  "package": "com.lazarus.scarcity.mixin",
+  "compatibilityLevel": "JAVA_17",
+  "refmap": "lazarusscarcity.refmap.json",
+  "mixins": ["ScrapLootServiceMixin", "ScrapPileBlockMixin", "CityWorldKitchenMixin"],
+  "injectors": {"defaultRequire": 1}
+}

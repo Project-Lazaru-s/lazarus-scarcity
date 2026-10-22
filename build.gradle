@@ -1,0 +1,39 @@
+plugins {
+    id 'net.minecraftforge.gradle' version '[6.0,6.2)'
+    id 'org.spongepowered.mixin' version '0.7.38'
+}
+
+version = '0.1.0'
+group = 'com.lazarus.scarcity'
+base.archivesName = 'lazarusscarcity'
+java.toolchain.languageVersion = JavaLanguageVersion.of(17)
+
+minecraft {
+    mappings channel: 'official', version: '1.20.1'
+    runs {
+        configureEach {
+            workingDirectory project.file('run')
+            property 'forge.logging.console.level', 'info'
+            property 'mixin.env.remapRefMap', 'true'
+            property 'mixin.env.refMapRemappingFile', "${projectDir}/build/createSrgToMcp/output.srg"
+            mods { lazarusscarcity { source sourceSets.main; source sourceSets.test } }
+        }
+        gameTestServer { property 'forge.enabledGameTestNamespaces', 'lazarusscarcity' }
+    }
+}
+
+repositories { flatDir { dirs 'libs' } }
+dependencies {
+    minecraft 'net.minecraftforge:forge:1.20.1-47.4.10'
+    annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
+    compileOnly fg.deobf('blank:lootpiles:1.1.4')
+    testCompileOnly fg.deobf('blank:lootpiles:1.1.4')
+    runtimeOnly fg.deobf('blank:lootpiles:1.1.4')
+    runtimeOnly fg.deobf('blank:cityworld:6.3.0')
+}
+mixin {
+    add sourceSets.main, 'lazarusscarcity.refmap.json'
+    config 'lazarusscarcity.mixins.json'
+}
+tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8' }
+tasks.named('jar', Jar).configure { finalizedBy 'reobfJar' }
