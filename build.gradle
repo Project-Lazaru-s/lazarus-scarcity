@@ -3,7 +3,7 @@ plugins {
     id 'org.spongepowered.mixin' version '0.7.38'
 }
 
-version = '0.1.0'
+version = '0.2.0'
 group = 'com.lazarus.scarcity'
 base.archivesName = 'lazarusscarcity'
 java.toolchain.languageVersion = JavaLanguageVersion.of(17)
@@ -30,6 +30,9 @@ dependencies {
     testCompileOnly fg.deobf('blank:lootpiles:1.1.4')
     runtimeOnly fg.deobf('blank:lootpiles:1.1.4')
     runtimeOnly fg.deobf('blank:cityworld:6.3.0')
+    compileOnly fg.deobf('blank:locks_reforged:1.7.5')
+    testCompileOnly fg.deobf('blank:locks_reforged:1.7.5')
+    runtimeOnly fg.deobf('blank:locks_reforged:1.7.5')
 }
 mixin {
     add sourceSets.main, 'lazarusscarcity.refmap.json'

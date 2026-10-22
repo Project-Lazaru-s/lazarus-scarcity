@@ -11,6 +11,8 @@ import net.minecraft.world.level.storage.loot.predicates.LootItemCondition;
 import net.minecraftforge.common.loot.IGlobalLootModifier;
 import net.minecraftforge.common.loot.LootModifier;
 import net.minecraftforge.common.loot.LootTableIdCondition;
+import net.minecraftforge.fml.ModList;
+import net.minecraft.core.BlockPos;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
@@ -41,16 +43,21 @@ public final class WorldLootModifier extends LootModifier {
         int phase = ScarcityRules.phase(ScarcityAge.day(context.getLevel()));
         if (phase == 0) return loot;
         boolean risky = !anonymousChest && ScarcityRules.risky(table);
-        if (context.getRandom().nextDouble() >= ScarcityRules.siteChance(phase, risky)) {
+        var origin = context.getParamOrNull(LootContextParams.ORIGIN);
+        boolean reserved = ModList.get().isLoaded("locks") && origin != null
+                && LockChestIntegration.hasReservedReward(context.getLevel(), BlockPos.containing(origin));
+        if (!reserved && context.getRandom().nextDouble() >= ScarcityRules.siteChance(phase, risky)) {
             loot.clear();
             return loot;
         }
 
+        List<ItemStack> original = reserved ? new ArrayList<>(loot) : List.of();
         List<ItemStack> candidates = new ArrayList<>();
         for (ItemStack stack : loot) {
             if (!stack.isEmpty() && context.getRandom().nextDouble() < ScarcityRules.itemChance(stack, phase))
                 candidates.add(stack);
         }
+        if (reserved && candidates.isEmpty()) candidates.add(original.get(context.getRandom().nextInt(original.size())));
         loot.clear();
         int limit = phase == 1 ? 3 : phase == 2 ? 2 : 1;
         while (!candidates.isEmpty() && loot.size() < limit) {

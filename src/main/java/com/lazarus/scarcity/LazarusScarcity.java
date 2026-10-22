@@ -8,6 +8,7 @@ import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.RegisterCommandsEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.ModLoadingContext;
+import net.minecraftforge.fml.ModList;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.config.ModConfig;
@@ -29,6 +30,8 @@ public final class LazarusScarcity {
         ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, ScarcityConfig.SPEC);
         MinecraftForge.EVENT_BUS.register(this);
         MinecraftForge.EVENT_BUS.register(new ExistingPileCleanup());
+        if (ModList.get().isLoaded("locks"))
+            MinecraftForge.EVENT_BUS.register(new LockChestIntegration());
     }
 
     @SubscribeEvent
@@ -44,6 +47,45 @@ public final class LazarusScarcity {
                             + ", local arriscado "
                             + Math.round(ScarcityRules.siteChance(phase, true) * 100) + "%"), false);
                     return 1;
-                })));
+                }))
+                .then(Commands.literal("locks")
+                        .then(Commands.literal("status").executes(ctx -> {
+                            if (!ModList.get().isLoaded("locks")) {
+                                ctx.getSource().sendFailure(Component.literal("Locks Reforged não está instalado."));
+                                return 0;
+                            }
+                            var level = ctx.getSource().getLevel();
+                            var at = net.minecraft.core.BlockPos.containing(ctx.getSource().getPosition());
+                            int cx = at.getX() >> 4, cz = at.getZ() >> 4;
+                            int chests = 0, locked = 0, processed = 0, chunks = 0;
+                            for (int x = cx - 2; x <= cx + 2; x++)
+                                for (int z = cz - 2; z <= cz + 2; z++) {
+                                    var chunk = level.getChunkSource().getChunkNow(x, z);
+                                    if (chunk == null) continue;
+                                    chunks++;
+                                    var counts = LockChestIntegration.inspectChunk(level, chunk);
+                                    chests += counts.eligible();
+                                    locked += counts.locked();
+                                    processed += counts.processed();
+                                }
+                            int found = chests, locks = locked, done = processed, loaded = chunks;
+                            ctx.getSource().sendSuccess(() -> Component.literal(
+                                    "Baús com loot pendente em " + loaded + " chunks carregados: "
+                                            + found + "; trancados: " + locks + "; avaliados: " + done), false);
+                            return 1;
+                        }))
+                        .then(Commands.literal("scan").requires(source -> source.hasPermission(2)).executes(ctx -> {
+                            if (!ModList.get().isLoaded("locks")) return 0;
+                            var level = ctx.getSource().getLevel();
+                            var at = net.minecraft.core.BlockPos.containing(ctx.getSource().getPosition());
+                            var chunk = level.getChunkSource().getChunkNow(at.getX() >> 4, at.getZ() >> 4);
+                            if (chunk == null) return 0;
+                            var counts = LockChestIntegration.processChunk(level, chunk);
+                            ctx.getSource().sendSuccess(() -> Component.literal(
+                                    "Chunk avaliado: " + counts.eligible() + " baús elegíveis, "
+                                            + counts.locked() + " novas fechaduras, "
+                                            + counts.processed() + " já avaliados."), false);
+                            return 1;
+                        }))));
     }
 }

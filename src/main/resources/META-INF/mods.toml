@@ -3,7 +3,7 @@ loaderVersion="[47,)"
 license="MIT"
 [[mods]]
 modId="lazarusscarcity"
-version="0.1.0"
+version="0.2.0"
 displayName="Lazarus Scarcity"
 authors="Project Lazarus"
 description='''World-age-based scarcity for scavenged loot in Project Lazarus.'''
@@ -18,4 +18,10 @@ modId="minecraft"
 mandatory=true
 versionRange="[1.20.1,1.21)"
 ordering="NONE"
+side="BOTH"
+[[dependencies.lazarusscarcity]]
+modId="locks"
+mandatory=false
+versionRange="[1.7.5,)"
+ordering="AFTER"
 side="BOTH"

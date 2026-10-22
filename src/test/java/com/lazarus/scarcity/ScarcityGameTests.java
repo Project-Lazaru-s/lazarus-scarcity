@@ -27,10 +27,78 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.ChestBlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import melonslise.locks.common.config.LocksConfig;
+import melonslise.locks.common.util.LocksUtil;
+import melonslise.locks.common.init.LocksCapabilities;
+import melonslise.locks.common.util.LootValueCalculator;
 
 @GameTestHolder(LazarusScarcity.ID)
 @PrefixGameTestTemplate(false)
 public final class ScarcityGameTests {
+    @GameTest(template = "scarcity_arena", timeoutTicks = 100)
+    public static void cityChestLocksOnceAndKeepsAReward(GameTestHelper h) {
+        var level = h.getLevel();
+        var previousChance = LocksConfig.GENERATION_CHANCE.get();
+        var previousScaling = LocksConfig.LOOT_SCALED_LOCKS.get();
+        var previousTiers = LocksConfig.LOOT_VALUE_TIERS.get();
+        var previousScarcity = ScarcityConfig.COMMON[3].get();
+        try {
+            double cityValue = LootValueCalculator.getLootValue(h.getLevel().getServer(),
+                    new ResourceLocation("cityworld", "chests/building"));
+            h.assertTrue(cityValue >= 1.0, "CityWorld building loot must meet the pack's first lock tier: " + cityValue);
+            LocksConfig.GENERATION_CHANCE.set(1.0);
+            LocksConfig.LOOT_SCALED_LOCKS.set(false);
+            ScarcityConfig.COMMON[3].set(0.0);
+            level.getServer().overworld().setDayTime(30L * 24000L);
+            BlockPos pos = h.absolutePos(new BlockPos(5, 2, 5));
+            BlockPos playerChest = h.absolutePos(new BlockPos(7, 2, 5));
+            level.setBlock(pos, Blocks.CHEST.defaultBlockState(), 3);
+            level.setBlock(playerChest, Blocks.CHEST.defaultBlockState(), 3);
+            var chest = (ChestBlockEntity) level.getBlockEntity(pos);
+            chest.setLootTable(new ResourceLocation(LazarusScarcity.ID, "chests/test_supply"), 42L);
+            chest.setChanged();
+            var chunk = level.getChunkAt(pos);
+            var integration = new LockChestIntegration();
+            integration.chunkLoad(new ChunkEvent.Load(chunk, false));
+            integration.worldTick(new TickEvent.LevelTickEvent(LogicalSide.SERVER, TickEvent.Phase.END, level, () -> true));
+            h.assertTrue(LocksUtil.intersecting(level, pos).count() == 1, "lock must be registered with Locks");
+            h.assertTrue(LocksUtil.intersecting(level, playerChest).findAny().isEmpty(),
+                    "player chest without a loot table must stay unlocked");
+            var table = level.getServer().getLootData().getLootTable(
+                    new ResourceLocation(LazarusScarcity.ID, "chests/test_supply"));
+            var params = new LootParams.Builder(level)
+                    .withParameter(LootContextParams.ORIGIN, Vec3.atCenterOf(pos))
+                    .create(LootContextParamSets.CHEST);
+            h.assertTrue(!table.getRandomItems(params).isEmpty(),
+                    "a locked chest should retain at least one item from a nonempty roll");
+            int id = LocksUtil.intersecting(level, pos).findAny().orElseThrow().id;
+            level.getCapability(LocksCapabilities.LOCKABLE_HANDLER)
+                    .orElseThrow(() -> new IllegalStateException("missing Locks handler")).remove(id);
+            h.assertTrue(LockChestIntegration.processChunk(level, chunk).locked() == 0,
+                    "breaking a generated lock must not relock its chest");
+            h.assertTrue(LocksUtil.intersecting(level, pos).findAny().isEmpty(),
+                    "chest should remain unlocked after the lock is removed");
+            LocksConfig.LOOT_VALUE_TIERS.set(java.util.List.of(1.0, 3.0, 8.0, 16.0, 24.0, 40.0, 60.0));
+            LocksConfig.init();
+            LocksConfig.LOOT_SCALED_LOCKS.set(true);
+            BlockPos cityPos = h.absolutePos(new BlockPos(9, 2, 5));
+            level.setBlock(cityPos, Blocks.CHEST.defaultBlockState(), 3);
+            var cityChest = (ChestBlockEntity) level.getBlockEntity(cityPos);
+            cityChest.setLootTable(new ResourceLocation("cityworld", "chests/building"), 42L);
+            cityChest.setChanged();
+            LockChestIntegration.processChunk(level, level.getChunkAt(cityPos));
+            h.assertTrue(LocksUtil.intersecting(level, cityPos).findAny().isPresent(),
+                    "ordinary CityWorld chest must qualify for the updated loot-value tiers");
+            h.succeed();
+        } finally {
+            LocksConfig.GENERATION_CHANCE.set(previousChance);
+            LocksConfig.LOOT_SCALED_LOCKS.set(previousScaling);
+            LocksConfig.LOOT_VALUE_TIERS.set(previousTiers);
+            LocksConfig.init();
+            ScarcityConfig.COMMON[3].set(previousScarcity);
+        }
+    }
+
     @GameTest(template = "scarcity_arena", timeoutTicks = 100)
     public static void dayThirtyMakesCommonStashesRare(GameTestHelper h) throws Exception {
         var level = h.getLevel();

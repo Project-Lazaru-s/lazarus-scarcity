@@ -7,6 +7,7 @@ final class ScarcityConfig {
     static final ForgeConfigSpec.IntValue SECOND_DAY, THIRD_DAY, FOURTH_DAY;
     static final ForgeConfigSpec.DoubleValue[] COMMON = new ForgeConfigSpec.DoubleValue[4];
     static final ForgeConfigSpec.DoubleValue[] RISKY = new ForgeConfigSpec.DoubleValue[4];
+    static final ForgeConfigSpec.BooleanValue LOCK_GENERATED_CHESTS;
 
     static {
         ForgeConfigSpec.Builder b = new ForgeConfigSpec.Builder();
@@ -20,6 +21,9 @@ final class ScarcityConfig {
             COMMON[i] = b.defineInRange("commonChanceStage" + i, common[i], 0, 1);
             RISKY[i] = b.defineInRange("riskyChanceStage" + i, risky[i], 0, 1);
         }
+        b.pop();
+        b.comment("Use Locks Reforged on generated loot chests, including CityWorld chunks that skip biome features.").push("locks");
+        LOCK_GENERATED_CHESTS = b.define("lockGeneratedChests", true);
         b.pop();
         SPEC = b.build();
     }
